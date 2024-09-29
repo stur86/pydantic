@@ -9,6 +9,7 @@ import pytest
 from pydantic_core import CoreSchema, SchemaValidator
 from pydantic_core import core_schema as cs
 
+from pydantic._internal import _git
 from pydantic._internal._core_utils import (
     HAS_INVALID_SCHEMAS_METADATA_KEY,
     Walk,
@@ -225,3 +226,26 @@ def test_schema_is_valid():
 )
 def test_decimal_digits_calculation(decimal: Decimal, decimal_places: int, digits: int) -> None:
     assert _extract_decimal_digits_info(decimal) == (decimal_places, digits)
+
+
+def test_have_git(monkeypatch) -> None:
+    def check_output(cmd, *args, **kwargs):
+        assert cmd == ['git', '--help']
+        return b''
+
+    monkeypatch.setattr(_git.subprocess, 'check_output', check_output)
+    assert _git.have_git() is True
+
+    def check_output_proc_error(cmd, *args, **kwargs):
+        assert cmd == ['git', '--help']
+        raise _git.subprocess.CalledProcessError(1, 'git')
+
+    monkeypatch.setattr(_git.subprocess, 'check_output', check_output_proc_error)
+    assert _git.have_git() is False
+
+    def check_output_os_error(cmd, *args, **kwargs):
+        assert cmd == ['git', '--help']
+        raise OSError
+
+    monkeypatch.setattr(_git.subprocess, 'check_output', check_output_os_error)
+    assert _git.have_git() is False
